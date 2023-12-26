@@ -50,3 +50,19 @@ This example is runnable from git using:
 openocd -f nucleo.cfg
 cabal run hocd-readme
 ```
+
+## Executable
+
+`hocd-read-mem` can be used to read a single or multiple
+addresses:
+
+```sh
+cabal run hocd-read-mem -- 0x40021000 0x48000014
+```
+
+Outputs:
+
+```
+0x40021000: 0x3030500
+0x48000014: 0x9
+```
