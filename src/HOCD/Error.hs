@@ -10,4 +10,4 @@ data OCDError
   | OCDError_GetAddrInfoFailed
   | OCDError_ParseMemory [OCDError]
   | OCDError_ExpectedOneButGotMore
-  deriving (Show)
+  deriving (Eq, Show)

@@ -12,6 +12,7 @@ module HOCD.Command
   , ReadMemory(..)
   , WriteMemory(..)
   , subChar
+  , parseMem
   ) where
 
 import Data.Bits (FiniteBits(..))
