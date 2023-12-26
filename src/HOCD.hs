@@ -4,6 +4,7 @@ module HOCD
   ( runOCD
   , module HOCD.Error
   , module HOCD.Monad
+  , module HOCD.Types
   ) where
 
 import Control.Monad.Catch (MonadMask)
@@ -15,7 +16,7 @@ import qualified Network.Socket
 
 import HOCD.Error
 import HOCD.Monad
-import HOCD.Types (OCDConfig(..))
+import HOCD.Types
 
 -- | Run OpenOCD client
 -- with defaults ("127.0.0.1:6666")
