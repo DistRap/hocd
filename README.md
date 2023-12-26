@@ -25,18 +25,28 @@ import HOCD
 main :: IO ()
 main = runOCD example >>= print
 
+-- | For STM32G474
 example
   :: MonadOCD m
   => m ([Word32], Word32)
 example = do
   halt'
 
+  -- Read RCC.CR register
   rccCr <- readMemCount @Word32 0x40021000 2
 
+  -- Read and increment GPIOA.ODR register
   let gpioaOdr = 0x48000014
   odr <- readMem32 gpioaOdr
   writeMem gpioaOdr [odr+1]
   r <- readMem32 gpioaOdr
 
   pure (rccCr, r)
+```
+
+This example is runnable from git using:
+
+```sh
+openocd -f nucleo.cfg
+cabal run hocd-readme
 ```
