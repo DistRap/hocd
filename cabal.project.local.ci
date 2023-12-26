@@ -1,0 +1,2 @@
+package hocd
+  ghc-options: -Wunused-packages -Wall -Werror
