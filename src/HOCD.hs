@@ -1,188 +1,59 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module HOCD where
 
-import Data.Bits (FiniteBits(..))
-import Data.ByteString (ByteString)
-import Data.Kind (Type)
+import Control.Monad.Catch (MonadMask)
+import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Word (Word32)
-import Network.Run.TCP (runTCPClient)
-import Network.Socket (Socket)
-import Network.Socket.ByteString (recv, sendAll)
-import Text.Printf (PrintfArg)
 
-import qualified Control.Monad
-import qualified Data.ByteString.Char8
-import qualified Data.Either
-import qualified Data.List
-import qualified Data.Text
-import qualified Data.Text.Read
-import qualified Text.Printf
+import qualified Control.Monad.Catch
+import qualified Network.Socket
 
-data OCDError
-  = OCDError_ReplyMissingSubOnEnd ByteString
-  | OCDError_CantReadHex String
-  | OCDError_ParseMdw [OCDError]
-  | OCDError_ExpectedOneButGot [Word32]
-  deriving (Show)
+import HOCD.Command
+import HOCD.Error
+import HOCD.Monad
 
-subChar :: Char
-subChar = '\SUB'
-
-ocdCmd :: ByteString -> ByteString
-ocdCmd =
-  (<> Data.ByteString.Char8.singleton subChar)
-
-ocdReply :: ByteString -> Either OCDError ByteString
-ocdReply r | Data.ByteString.Char8.last r /= subChar =
-  Left $ OCDError_ReplyMissingSubOnEnd r
-ocdReply r | otherwise =
-  Right $ Data.ByteString.Char8.init r
-
-data Halt = Halt
-
-instance Show Halt where
-  show = pure "halt"
-
-data Capture a = Capture a
-
-instance Show a => Show (Capture a) where
-  show (Capture x) =
-    unwords ["capture", show $ show x ]
-
-class Command req where
-  type Reply req :: Type
-
-  request
-    :: req
-    -> ByteString
-
-  default request
-    :: Show req
-    => req
-    -> ByteString
-  request =
-      Data.ByteString.Char8.pack
-    . show
-
-  reply
-    :: req
-    -> ByteString
-    -> Either OCDError (Reply req)
-
-instance Command Halt where
-  type Reply Halt = ByteString
-  reply _ = ocdReply
-
-instance (Command a, Show a) => Command (Capture a) where
-  type Reply (Capture a) = ByteString
-  reply _ = ocdReply
-
-data ReadMemory a = ReadMemory
-  { readMemoryAddr :: Word32
-  , readMemoryCount :: Int
-  }
-
-instance ( FiniteBits a
-         , Num a
-         ) => Show (ReadMemory a) where
-  show ReadMemory{..} =
-    unwords
-      [ "read_memory"
-      , show readMemoryAddr
-      , show $ finiteBitSize (0 :: a)
-      , show readMemoryCount
-      ]
-
-instance ( FiniteBits a
-         , Integral a
-         ) => Command (ReadMemory a) where
-  type Reply (ReadMemory a) = [a]
-  reply _ r = ocdReply r >>= parseMem
-
-parseMem
-  :: ( FiniteBits a
-     , Integral a
+runOCD
+  :: ( MonadIO m
+     , MonadMask m
      )
-  => ByteString
-  -> Either OCDError [a]
-parseMem =
-      (\case
-         xs | any Data.Either.isLeft xs ->
-          Left (OCDError_ParseMdw $ Data.Either.lefts xs)
-         xs | otherwise ->
-          pure (Data.Either.rights xs)
-      )
-    . map
-      ( either
-          (Left . OCDError_CantReadHex)
-          (pure . fst)
-      . Data.Text.Read.hexadecimal
-      . Data.Text.pack
-      )
-    . words
-    . Data.ByteString.Char8.unpack
+  => OCDT m a
+  -> m (Either OCDError a)
+runOCD act = do
+  addrInfo <- liftIO $ Network.Socket.getAddrInfo
+    (Just Network.Socket.defaultHints)
+    (Just "127.0.0.1")
+    (Just $ show 6666)
 
-data WriteMemory a = WriteMemory
-  { writeMemoryAddr :: Word32
-  , writeMemoryData :: [a]
-  }
-
-instance ( FiniteBits a
-         , PrintfArg a
-         , Integral a
-         ) => Show (WriteMemory a) where
-  show WriteMemory{..} =
-    unwords
-      [ "write_memory"
-      , show writeMemoryAddr
-      , show $ finiteBitSize (0 :: a)
-      , asTCLList writeMemoryData
-      ]
-    where
-      asTCLList x =
-           "{"
-        <> Data.List.intercalate
-            ","
-            (map (formatHex @a) x)
-        <> "}"
-      formatHex :: PrintfArg t => t -> String
-      formatHex = Text.Printf.printf "0x%x"
-
-instance ( FiniteBits a
-         , Integral a
-         , PrintfArg a
-         ) => Command (WriteMemory a) where
-  type Reply (WriteMemory a) = ()
-  reply _ = ocdReply >>= pure . Control.Monad.void
-
-rpc
-  :: Command req
-  => Socket
-  -> req
-  -> IO (Either OCDError (Reply req))
-rpc sock cmd = do
-  sendAll sock (ocdCmd $ request cmd)
-  reply cmd <$> recvTillSub sock
+  case addrInfo of
+    (sockAddr:_) ->
+      Control.Monad.Catch.bracket
+        (liftIO
+          $ open
+              (Network.Socket.addrFamily sockAddr)
+              (Network.Socket.addrAddress sockAddr)
+        )
+        (liftIO . Network.Socket.close)
+        (\sock -> runOCDT sock act)
   where
-    recvTillSub s = do
-      msg <- recv s 1024
-      if Data.ByteString.Char8.last msg == subChar
-      then pure msg
-      else recvTillSub s >>= pure . (msg <>)
+    open sockFamily sockAddr = do
+      soc <-
+        Network.Socket.socket
+          sockFamily
+          Network.Socket.Stream
+          Network.Socket.defaultProtocol
+      Network.Socket.connect soc sockAddr
+      pure soc
 
---main :: IO (Either OCDError [Word32])
-main = runTCPClient "127.0.0.1" "6666" $ \sock -> do
-    _ <- rpc sock (Capture Halt)
-    _ <- rpc sock (ReadMemory @Word32 0x40021000 10)
-    let gpioaOdr = 0x48000014
-    Right [odr] <- rpc sock (ReadMemory @Word32 gpioaOdr 1)
-    print odr
-    w <- rpc sock (WriteMemory gpioaOdr [odr+1])
-    r <- rpc sock (ReadMemory @Word32 gpioaOdr 1)
-    pure (w, r)
+example :: MonadOCD m
+   => m [Word32]
+example = do
+  h <- halt
+  readMem $ ReadMemory @Word32 0x40021000 10
+  let gpioaOdr = 0x48000014
+  odr' <- readMem (ReadMemory @Word32 gpioaOdr 1)
+  case odr' of
+    [odr] -> writeMem (WriteMemory gpioaOdr [odr+1])
+    _ -> undefined
+  r <- readMem (ReadMemory @Word32 gpioaOdr 1)
+  pure r

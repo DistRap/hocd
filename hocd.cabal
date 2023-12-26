@@ -23,13 +23,18 @@ library
   ghc-options:         -Wall
   hs-source-dirs:      src
   exposed-modules:     HOCD
---                     , HOCD.Types
+                     , HOCD.Command
+                     , HOCD.Error
+                     , HOCD.Monad
   build-depends:       base >= 4.7 && < 5
                      , binary
                      , bytestring
-                     , text
+                     , exceptions
+                     , mtl
                      , network
                      , network-run
+                     , transformers
+                     , text
   default-language:    Haskell2010
 
 executable hocd
