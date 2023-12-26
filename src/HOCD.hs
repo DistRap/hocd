@@ -14,11 +14,15 @@ import Data.Word (Word32)
 import Network.Run.TCP (runTCPClient)
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv, sendAll)
+import Text.Printf (PrintfArg)
 
+import qualified Control.Monad
 import qualified Data.ByteString.Char8
 import qualified Data.Either
+import qualified Data.List
 import qualified Data.Text
 import qualified Data.Text.Read
+import qualified Text.Printf
 
 data OCDError
   = OCDError_ReplyMissingSubOnEnd ByteString
@@ -97,7 +101,6 @@ instance ( FiniteBits a
 
 instance ( FiniteBits a
          , Integral a
-         , Num a
          ) => Command (ReadMemory a) where
   type Reply (ReadMemory a) = [a]
   reply _ r = ocdReply r >>= parseMem
@@ -125,6 +128,39 @@ parseMem =
     . words
     . Data.ByteString.Char8.unpack
 
+data WriteMemory a = WriteMemory
+  { writeMemoryAddr :: Word32
+  , writeMemoryData :: [a]
+  }
+
+instance ( FiniteBits a
+         , PrintfArg a
+         , Integral a
+         ) => Show (WriteMemory a) where
+  show WriteMemory{..} =
+    unwords
+      [ "write_memory"
+      , show writeMemoryAddr
+      , show $ finiteBitSize (0 :: a)
+      , asTCLList writeMemoryData
+      ]
+    where
+      asTCLList x =
+           "{"
+        <> Data.List.intercalate
+            ","
+            (map (formatHex @a) x)
+        <> "}"
+      formatHex :: PrintfArg t => t -> String
+      formatHex = Text.Printf.printf "0x%x"
+
+instance ( FiniteBits a
+         , Integral a
+         , PrintfArg a
+         ) => Command (WriteMemory a) where
+  type Reply (WriteMemory a) = ()
+  reply _ = ocdReply >>= pure . Control.Monad.void
+
 rpc
   :: Command req
   => Socket
@@ -140,7 +176,13 @@ rpc sock cmd = do
       then pure msg
       else recvTillSub s >>= pure . (msg <>)
 
-main :: IO (Either OCDError [Word32])
+--main :: IO (Either OCDError [Word32])
 main = runTCPClient "127.0.0.1" "6666" $ \sock -> do
     _ <- rpc sock (Capture Halt)
-    rpc sock (ReadMemory @Word32 0x40021000 10)
+    _ <- rpc sock (ReadMemory @Word32 0x40021000 10)
+    let gpioaOdr = 0x48000014
+    Right [odr] <- rpc sock (ReadMemory @Word32 gpioaOdr 1)
+    print odr
+    w <- rpc sock (WriteMemory gpioaOdr [odr+1])
+    r <- rpc sock (ReadMemory @Word32 gpioaOdr 1)
+    pure (w, r)
