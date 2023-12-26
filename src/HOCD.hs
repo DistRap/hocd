@@ -1,0 +1,212 @@
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+
+module HOCD where
+
+import Data.Bits (FiniteBits(..))
+import Data.ByteString (ByteString)
+import Data.Kind (Type)
+import Data.Word (Word32)
+import Data.Word
+import Network.Run.TCP (runTCPClient)
+import Network.Socket (Socket)
+import Network.Socket.ByteString (recv, sendAll)
+
+import qualified Data.ByteString.Char8
+import qualified Data.Either
+import qualified Data.Text
+import qualified Data.Text.Read
+
+data OCDError
+  = OCDError_ReplyMissingSubOnEnd ByteString
+  | OCDError_CantReadHex String
+  | OCDError_ParseMdw [OCDError]
+  | OCDError_ExpectedOneButGot [Word32]
+  deriving (Show)
+
+subChar :: Char
+subChar = '\SUB'
+
+ocdCmd :: ByteString -> ByteString
+ocdCmd =
+  (<> Data.ByteString.Char8.singleton subChar)
+
+ocdReply :: ByteString -> Either OCDError ByteString
+ocdReply r | Data.ByteString.Char8.last r /= subChar =
+  Left $ OCDError_ReplyMissingSubOnEnd r
+ocdReply r | otherwise =
+  Right $ Data.ByteString.Char8.init r
+
+data Halt = Halt
+
+instance Show Halt where
+  show = pure "halt"
+
+data Capture a = Capture a
+
+instance Show a => Show (Capture a) where
+  show (Capture x) =
+    unwords ["capture", show $ show x ]
+
+class Command req where
+  type Reply req :: Type
+
+  request
+    :: req
+    -> ByteString
+
+  default request
+    :: Show req
+    => req
+    -> ByteString
+  request =
+      Data.ByteString.Char8.pack
+    . show
+
+  reply
+    :: req
+    -> ByteString
+    -> Either OCDError (Reply req)
+
+instance Command Halt where
+  type Reply Halt = ByteString
+  reply _ = ocdReply
+
+instance (Command a, Show a) => Command (Capture a) where
+  type Reply (Capture a) = ByteString
+  reply _ = ocdReply
+
+data MDW = MDW
+  { mdwAddr :: Word32 }
+
+instance Show MDW where
+  show MDW{..} =
+    unwords
+      [ "mdw"
+      , show mdwAddr
+      ]
+
+instance Command MDW where
+  type Reply MDW = Word32
+  reply _ r =
+    ocdReply r
+    >>= parseMdw
+    >>= \case
+          [x] -> pure x
+          uff -> Left $ OCDError_ExpectedOneButGot uff
+
+data MDWMany = MDWMany
+  { mdwManyAddr :: Word32
+  , mdwManyLen :: Int
+  }
+
+instance Show MDWMany where
+  show MDWMany{..} =
+    unwords
+      [ "mdw"
+      , show mdwManyAddr
+      , show mdwManyLen
+      ]
+
+instance Command MDWMany where
+  type Reply MDWMany = [Word32]
+  reply _ r = ocdReply r >>= parseMdw
+
+data ReadMemory a = ReadMemory
+  { readMemoryAddr :: Word32
+  , readMemoryLen :: Int
+  }
+
+instance ( FiniteBits a
+         , Num a
+         ) => Show (ReadMemory a) where
+  show ReadMemory{..} =
+    unwords
+      [ "read_memory"
+      , show readMemoryAddr
+      , show $ finiteBitSize (0 :: a)
+      , show readMemoryLen
+      ]
+
+instance ( FiniteBits a
+         , Integral a
+         , Num a
+         ) => Command (ReadMemory a) where
+  type Reply (ReadMemory a) = [a]
+  reply _ r = ocdReply r >>= parseMem
+
+parseMem
+  :: ( FiniteBits a
+     , Integral a
+     )
+  => ByteString
+  -> Either OCDError [a]
+parseMem =
+      (\case
+         xs | any Data.Either.isLeft xs ->
+          Left (OCDError_ParseMdw $ Data.Either.lefts xs)
+         xs | otherwise ->
+          pure (Data.Either.rights xs)
+      )
+    . map
+      ( either
+          (Left . OCDError_CantReadHex)
+          (pure . fst)
+      . Data.Text.Read.hexadecimal
+      . Data.Text.pack
+      )
+    . words
+    . Data.ByteString.Char8.unpack
+
+parseMdw :: ByteString -> Either OCDError [Word32]
+parseMdw =
+      (\case
+         xs | any Data.Either.isLeft xs ->
+          Left (OCDError_ParseMdw $ Data.Either.lefts xs)
+         xs | otherwise ->
+          pure (Data.Either.rights xs)
+      )
+    . map
+      ( either
+          (Left . OCDError_CantReadHex)
+          (pure . fst)
+      . Data.Text.Read.hexadecimal
+      . Data.Text.pack
+      )
+    . concatMap
+        ( words
+        . Data.ByteString.Char8.unpack
+        )
+    . concatMap
+        ( tail
+        . Data.ByteString.Char8.split ':'
+        )
+    . Data.ByteString.Char8.lines
+
+rpc
+  :: Command req
+  => Socket
+  -> req
+  -> IO (Either OCDError (Reply req))
+rpc sock cmd = do
+  sendAll sock (ocdCmd $ request cmd)
+  reply cmd <$> recvTillSub sock
+  where
+    recvTillSub s = do
+      msg <- recv s 1024
+      if Data.ByteString.Char8.last msg == subChar
+      then pure msg
+      else recvTillSub s >>= pure . (msg <>)
+
+--main :: IO ()
+main = runTCPClient "127.0.0.1" "6666" $ \sock -> do
+    res <- rpc sock (Capture Halt)
+    print res
+    a <- rpc sock (MDW 0x40021000)
+    b <- rpc sock (MDWMany 0x40021000 10)
+    c <- rpc sock (ReadMemory @Word32 0x40021000 10)
+    pure (a, b, c)

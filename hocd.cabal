@@ -1,0 +1,61 @@
+cabal-version:       2.2
+name:                hocd
+version:             0.1.0.0
+synopsis:            OpenOCD Haskell interface
+description:         Support for OpenOCDs TCL interface
+homepage:            https://github.com/DistRap/hocd
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              sorki
+maintainer:          srk@48.io
+copyright:           2023 sorki
+category:            Embedded
+build-type:          Simple
+
+extra-source-files:
+    LICENSE
+    README.md
+
+extra-doc-files:
+    CHANGELOG.md
+
+library
+  ghc-options:         -Wall
+  hs-source-dirs:      src
+  exposed-modules:     HOCD
+--                     , HOCD.Types
+  build-depends:       base >= 4.7 && < 5
+                     , binary
+                     , bytestring
+                     , text
+                     , network
+                     , network-run
+  default-language:    Haskell2010
+
+executable hocd
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , hocd
+                     , bytestring
+  default-language:    Haskell2010
+
+
+-- test-suite hocd-tests
+--   type:                exitcode-stdio-1.0
+--   hs-source-dirs:      test
+--   main-is:             Spec.hs
+--   other-modules:       --ParseSpec
+--                        SpecHelper
+--   build-tool-depends:
+--     hspec-discover:hspec-discover
+--   build-depends:       base >= 4.7 && < 5
+--                      , hocd
+--                      , hspec
+--                      , base16-bytestring
+--   default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/DistRap/hocd
