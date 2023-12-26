@@ -17,8 +17,8 @@ module HOCD.Command
 import Data.Bits (FiniteBits(..))
 import Data.Kind (Type)
 import Data.ByteString (ByteString)
-import Data.Word (Word32)
 import HOCD.Error (OCDError(..))
+import HOCD.Types (MemAddress(..))
 import Text.Printf (PrintfArg)
 
 import qualified Control.Monad
@@ -62,14 +62,17 @@ data Capture a = Capture a
 
 instance Show a => Show (Capture a) where
   show (Capture x) =
-    unwords ["capture", show $ show x ]
+    unwords
+      ["capture"
+      , show $ show x -- escaping
+      ]
 
 instance (Command a, Show a) => Command (Capture a) where
   type Reply (Capture a) = ByteString
   reply _ = ocdReply
 
 data ReadMemory a = ReadMemory
-  { readMemoryAddr :: Word32
+  { readMemoryAddr :: MemAddress
   , readMemoryCount :: Int
   }
 
@@ -79,7 +82,7 @@ instance ( FiniteBits a
   show ReadMemory{..} =
     unwords
       [ "read_memory"
-      , show readMemoryAddr
+      , show $ unMemAddress readMemoryAddr
       , show $ finiteBitSize (0 :: a)
       , show readMemoryCount
       ]
@@ -114,7 +117,7 @@ parseMem =
     . Data.ByteString.Char8.unpack
 
 data WriteMemory a = WriteMemory
-  { writeMemoryAddr :: Word32
+  { writeMemoryAddr :: MemAddress
   , writeMemoryData :: [a]
   }
 
@@ -125,7 +128,7 @@ instance ( FiniteBits a
   show WriteMemory{..} =
     unwords
       [ "write_memory"
-      , show writeMemoryAddr
+      , show $ unMemAddress writeMemoryAddr
       , show $ finiteBitSize (0 :: a)
       , asTCLList writeMemoryData
       ]

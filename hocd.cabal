@@ -26,6 +26,7 @@ library
                      , HOCD.Command
                      , HOCD.Error
                      , HOCD.Monad
+                     , HOCD.Types
   build-depends:       base >= 4.7 && < 5
                      , binary
                      , bytestring

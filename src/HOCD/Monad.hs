@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Rank2Types #-}
 
 module HOCD.Monad
   ( OCDT
@@ -28,6 +29,7 @@ import HOCD.Command
   , subChar
   )
 import HOCD.Error (OCDError)
+import HOCD.Types (MemAddress)
 import Network.Socket (Socket)
 import Text.Printf (PrintfArg)
 
@@ -108,20 +110,34 @@ halt
 halt = rpc $ Capture Halt
 
 readMem
-  :: ( MonadOCD m
+  :: forall a m
+   . ( MonadOCD m
      , FiniteBits a
      , Integral a
      )
-  => ReadMemory a
+  => MemAddress
+  -> Int -- ^ Count
   -> m [a]
-readMem = rpc
+readMem ma c =
+  rpc
+    $ ReadMemory
+        { readMemoryAddr = ma
+        , readMemoryCount = c
+        }
 
 writeMem
-  :: ( MonadOCD m
+  :: forall a m
+   . ( MonadOCD m
      , FiniteBits a
      , PrintfArg a
      , Integral a
      )
-  => WriteMemory a
+  => MemAddress
+  -> [a]
   -> m ()
-writeMem = rpc
+writeMem ma xs =
+  rpc
+    $ WriteMemory
+        { writeMemoryAddr = ma
+        , writeMemoryData = xs
+        }

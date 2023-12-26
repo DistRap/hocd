@@ -12,6 +12,7 @@ import qualified Network.Socket
 import HOCD.Command
 import HOCD.Error
 import HOCD.Monad
+import HOCD.Types
 
 runOCD
   :: ( MonadIO m
@@ -45,15 +46,16 @@ runOCD act = do
       Network.Socket.connect soc sockAddr
       pure soc
 
-example :: MonadOCD m
-   => m [Word32]
+example
+  :: MonadOCD m
+  => m [Word32]
 example = do
   h <- halt
-  readMem $ ReadMemory @Word32 0x40021000 10
-  let gpioaOdr = 0x48000014
-  odr' <- readMem (ReadMemory @Word32 gpioaOdr 1)
+  readMem @Word32 0x40021000 10
+  let gpioaOdr = memAddr 0x48000014
+  odr' <- readMem @Word32 gpioaOdr 1
   case odr' of
-    [odr] -> writeMem (WriteMemory gpioaOdr [odr+1])
+    [odr] -> writeMem gpioaOdr [odr+1]
     _ -> undefined
-  r <- readMem (ReadMemory @Word32 gpioaOdr 1)
+  r <- readMem @Word32 gpioaOdr 1
   pure r
