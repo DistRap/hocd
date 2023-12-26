@@ -19,6 +19,12 @@ extra-source-files:
 extra-doc-files:
     CHANGELOG.md
 
+flag build-readme
+  default:
+    False
+  description:
+    Build README.lhs example
+
 library
   ghc-options:         -Wall
   hs-source-dirs:      src
@@ -48,6 +54,17 @@ executable hocd
                      , bytestring
   default-language:    Haskell2010
 
+executable hocd-readme
+  if !flag(build-readme)
+    buildable: False
+  build-depends:
+      base >=4.12 && <5
+    , hocd
+  build-tool-depends:
+      markdown-unlit:markdown-unlit
+  default-language: Haskell2010
+  main-is: README.lhs
+  ghc-options: -pgmL markdown-unlit -Wall
 
 -- test-suite hocd-tests
 --   type:                exitcode-stdio-1.0

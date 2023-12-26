@@ -1,0 +1,4 @@
+packages: hocd.cabal
+
+package hocd
+  flags: +build-readme

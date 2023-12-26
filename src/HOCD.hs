@@ -1,5 +1,4 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
 
 module HOCD
   ( runOCD
@@ -10,7 +9,6 @@ module HOCD
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Default.Class (Default(def))
-import Data.Word (Word32)
 
 import qualified Control.Monad.Catch
 import qualified Network.Socket
@@ -64,18 +62,3 @@ runOCDConfig OCDConfig{..} act = do
           Network.Socket.defaultProtocol
       Network.Socket.connect soc sockAddr
       pure soc
-
-example
-  :: MonadOCD m
-  => m ([Word32], Word32)
-example = do
-  halt'
-
-  rccCr <- readMemCount @Word32 0x40021000 2
-
-  let gpioaOdr = 0x48000014
-  odr <- readMem @Word32 gpioaOdr
-  writeMem gpioaOdr [odr+1]
-  r <- readMem @Word32 gpioaOdr
-
-  pure (rccCr, r)

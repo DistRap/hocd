@@ -1,27 +1,40 @@
-# hocd
-
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/sorki/hocd/ci.yaml?branch=main)](https://github.com/sorki/hocd/actions/workflows/ci.yaml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/DistRap/hocd/ci.yaml?branch=main)](https://github.com/DistRap/hocd/actions/workflows/ci.yaml)
 [![Hackage version](https://img.shields.io/hackage/v/hocd.svg?color=success)](https://hackage.haskell.org/package/hocd)
 [![Dependencies](https://img.shields.io/hackage-deps/v/hocd?label=Dependencies)](https://packdeps.haskellers.com/feed?needle=hocd)
 
-Encode and decode [Something](https://example.org)
+# hocd
 
-Copy and use `./new PROJNAME` to rename stuff.
+[OpenOCD] RPC service client.
 
-[Relative link](app/Main.hs).
+[OpenOCD]: https://openocd.org/
 
-## Section
+## API
 
-* Bullet
-* list
+[HOCD.Monad]: ./src/HOCD/Monad.hs
 
-## Usage
+## Example
 
 ```haskell
-import qualified Data.Lib as C
+{-# LANGUAGE TypeApplications #-}
+
+import Data.Word (Word32)
+import HOCD
 
 main :: IO ()
-main = do
-  let x = (0, AnalogIn 4.48)
-  print $ C.decode $ C.encode x
+main = runOCD example >>= print
+
+example
+  :: MonadOCD m
+  => m ([Word32], Word32)
+example = do
+  halt'
+
+  rccCr <- readMemCount @Word32 0x40021000 2
+
+  let gpioaOdr = 0x48000014
+  odr <- readMem32 gpioaOdr
+  writeMem gpioaOdr [odr+1]
+  r <- readMem32 gpioaOdr
+
+  pure (rccCr, r)
 ```
