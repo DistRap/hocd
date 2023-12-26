@@ -48,14 +48,12 @@ runOCD act = do
 
 example
   :: MonadOCD m
-  => m [Word32]
+  => m Word32
 example = do
   h <- halt
-  readMem @Word32 0x40021000 10
+  readMemCount @Word32 0x40021000 10
   let gpioaOdr = memAddr 0x48000014
-  odr' <- readMem @Word32 gpioaOdr 1
-  case odr' of
-    [odr] -> writeMem gpioaOdr [odr+1]
-    _ -> undefined
-  r <- readMem @Word32 gpioaOdr 1
+  odr <- readMem @Word32 gpioaOdr
+  writeMem gpioaOdr [odr+1]
+  r <- readMem @Word32 gpioaOdr
   pure r
