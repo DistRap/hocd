@@ -10,7 +10,7 @@
 
 ## API
 
-See Haddocks or [HOCD.Monad].
+See Haddocks or [HOCD.Monad]
 
 [HOCD.Monad]: ./src/HOCD/Monad.hs
 
@@ -44,7 +44,7 @@ example = do
   pure (rccCr, r)
 ```
 
-This example is runnable from git using:
+This example is runnable from git repository using:
 
 ```sh
 openocd -f nucleo.cfg
