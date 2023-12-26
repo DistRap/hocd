@@ -1,6 +1,10 @@
 {-# LANGUAGE TypeApplications #-}
 
-module HOCD where
+module HOCD
+  ( runOCD
+  , module HOCD.Error
+  , module HOCD.Monad
+  ) where
 
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -9,10 +13,8 @@ import Data.Word (Word32)
 import qualified Control.Monad.Catch
 import qualified Network.Socket
 
-import HOCD.Command
 import HOCD.Error
 import HOCD.Monad
-import HOCD.Types
 
 runOCD
   :: ( MonadIO m
@@ -48,12 +50,15 @@ runOCD act = do
 
 example
   :: MonadOCD m
-  => m Word32
+  => m ([Word32], Word32)
 example = do
-  h <- halt
-  readMemCount @Word32 0x40021000 10
-  let gpioaOdr = memAddr 0x48000014
+  halt'
+
+  rccCr <- readMemCount @Word32 0x40021000 2
+
+  let gpioaOdr = 0x48000014
   odr <- readMem @Word32 gpioaOdr
   writeMem gpioaOdr [odr+1]
   r <- readMem @Word32 gpioaOdr
-  pure r
+
+  pure (rccCr, r)

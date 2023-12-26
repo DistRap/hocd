@@ -2,4 +2,4 @@ module Main where
 
 import HOCD
 
-main = HOCD.main
+main = runOCD $ readMem32 0x0

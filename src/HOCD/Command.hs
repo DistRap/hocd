@@ -136,8 +136,8 @@ instance ( FiniteBits a
       asTCLList x =
            "{"
         <> Data.List.intercalate
-            ","
-            (map (formatHex @a) x)
+             ","
+             (map (formatHex @a) x)
         <> "}"
       formatHex :: PrintfArg t => t -> String
       formatHex = Text.Printf.printf "0x%x"

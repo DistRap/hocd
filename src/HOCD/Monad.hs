@@ -9,6 +9,7 @@ module HOCD.Monad
   , runOCDT
   , MonadOCD(..)
   , halt
+  , halt'
   , readMem
   , readMem32
   , readMemCount
@@ -117,6 +118,12 @@ halt
   :: MonadOCD m
   => m ByteString
 halt = rpc $ Capture Halt
+
+-- | Halt target, discarding reply
+halt'
+  :: MonadOCD m
+  => m ()
+halt' = halt >> pure ()
 
 -- | Read multiple memory segments from @MemAddress@
 -- according to count argument. Segment size depends
