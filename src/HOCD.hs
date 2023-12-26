@@ -11,7 +11,6 @@ import Data.Bits (FiniteBits(..))
 import Data.ByteString (ByteString)
 import Data.Kind (Type)
 import Data.Word (Word32)
-import Data.Word
 import Network.Run.TCP (runTCPClient)
 import Network.Socket (Socket)
 import Network.Socket.ByteString (recv, sendAll)
@@ -80,45 +79,9 @@ instance (Command a, Show a) => Command (Capture a) where
   type Reply (Capture a) = ByteString
   reply _ = ocdReply
 
-data MDW = MDW
-  { mdwAddr :: Word32 }
-
-instance Show MDW where
-  show MDW{..} =
-    unwords
-      [ "mdw"
-      , show mdwAddr
-      ]
-
-instance Command MDW where
-  type Reply MDW = Word32
-  reply _ r =
-    ocdReply r
-    >>= parseMdw
-    >>= \case
-          [x] -> pure x
-          uff -> Left $ OCDError_ExpectedOneButGot uff
-
-data MDWMany = MDWMany
-  { mdwManyAddr :: Word32
-  , mdwManyLen :: Int
-  }
-
-instance Show MDWMany where
-  show MDWMany{..} =
-    unwords
-      [ "mdw"
-      , show mdwManyAddr
-      , show mdwManyLen
-      ]
-
-instance Command MDWMany where
-  type Reply MDWMany = [Word32]
-  reply _ r = ocdReply r >>= parseMdw
-
 data ReadMemory a = ReadMemory
   { readMemoryAddr :: Word32
-  , readMemoryLen :: Int
+  , readMemoryCount :: Int
   }
 
 instance ( FiniteBits a
@@ -129,7 +92,7 @@ instance ( FiniteBits a
       [ "read_memory"
       , show readMemoryAddr
       , show $ finiteBitSize (0 :: a)
-      , show readMemoryLen
+      , show readMemoryCount
       ]
 
 instance ( FiniteBits a
@@ -162,31 +125,6 @@ parseMem =
     . words
     . Data.ByteString.Char8.unpack
 
-parseMdw :: ByteString -> Either OCDError [Word32]
-parseMdw =
-      (\case
-         xs | any Data.Either.isLeft xs ->
-          Left (OCDError_ParseMdw $ Data.Either.lefts xs)
-         xs | otherwise ->
-          pure (Data.Either.rights xs)
-      )
-    . map
-      ( either
-          (Left . OCDError_CantReadHex)
-          (pure . fst)
-      . Data.Text.Read.hexadecimal
-      . Data.Text.pack
-      )
-    . concatMap
-        ( words
-        . Data.ByteString.Char8.unpack
-        )
-    . concatMap
-        ( tail
-        . Data.ByteString.Char8.split ':'
-        )
-    . Data.ByteString.Char8.lines
-
 rpc
   :: Command req
   => Socket
@@ -202,11 +140,7 @@ rpc sock cmd = do
       then pure msg
       else recvTillSub s >>= pure . (msg <>)
 
---main :: IO ()
+main :: IO (Either OCDError [Word32])
 main = runTCPClient "127.0.0.1" "6666" $ \sock -> do
-    res <- rpc sock (Capture Halt)
-    print res
-    a <- rpc sock (MDW 0x40021000)
-    b <- rpc sock (MDWMany 0x40021000 10)
-    c <- rpc sock (ReadMemory @Word32 0x40021000 10)
-    pure (a, b, c)
+    _ <- rpc sock (Capture Halt)
+    rpc sock (ReadMemory @Word32 0x40021000 10)
