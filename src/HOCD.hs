@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 
 module HOCD
@@ -8,6 +9,7 @@ module HOCD
 
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Data.Default.Class (Default(def))
 import Data.Word (Word32)
 
 import qualified Control.Monad.Catch
@@ -15,18 +17,32 @@ import qualified Network.Socket
 
 import HOCD.Error
 import HOCD.Monad
+import HOCD.Types (OCDConfig(..))
 
+-- | Run OpenOCD client
+-- with defaults ("127.0.0.1:6666")
 runOCD
   :: ( MonadIO m
      , MonadMask m
      )
   => OCDT m a
   -> m (Either OCDError a)
-runOCD act = do
+runOCD = runOCDConfig def
+
+-- | Run OpenOCD client with @OCDConfig@
+-- allowing to set custom host and port
+runOCDConfig
+  :: ( MonadIO m
+     , MonadMask m
+     )
+  => OCDConfig
+  -> OCDT m a
+  -> m (Either OCDError a)
+runOCDConfig OCDConfig{..} act = do
   addrInfo <- liftIO $ Network.Socket.getAddrInfo
     (Just Network.Socket.defaultHints)
-    (Just "127.0.0.1")
-    (Just $ show 6666)
+    (Just ocdHost)
+    (Just $ show ocdPort)
 
   case addrInfo of
     (sockAddr:_) ->
@@ -38,6 +54,7 @@ runOCD act = do
         )
         (liftIO . Network.Socket.close)
         (\sock -> runOCDT sock act)
+    _ -> pure (Left OCDError_GetAddrInfoFailed)
   where
     open sockFamily sockAddr = do
       soc <-
