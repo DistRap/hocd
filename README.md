@@ -10,6 +10,8 @@
 
 ## API
 
+See Haddocks or [HOCD.Monad].
+
 [HOCD.Monad]: ./src/HOCD/Monad.hs
 
 ## Example
