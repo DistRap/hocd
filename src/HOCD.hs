@@ -2,6 +2,7 @@
 
 module HOCD
   ( runOCD
+  , runOCDConfig
   , module HOCD.Error
   , module HOCD.Monad
   , module HOCD.Types
