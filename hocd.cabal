@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                hocd
-version:             0.1.1.0
+version:             0.1.1.1
 synopsis:            OpenOCD Haskell interface
 description:         Support for OpenOCDs TCL interface
 homepage:            https://github.com/DistRap/hocd
