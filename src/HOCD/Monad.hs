@@ -1,8 +1,11 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module HOCD.Monad
   ( OCDT
@@ -24,6 +27,7 @@ import Control.Monad.Reader (MonadReader, ask)
 import Control.Monad.Trans (MonadTrans, lift)
 import Control.Monad.Trans.Except (ExceptT, runExceptT)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.State (StateT)
 import Data.Bits (FiniteBits(..))
 import Data.ByteString (ByteString)
 import Data.Word (Word32)
@@ -77,10 +81,22 @@ runOCDT sock =
 class ( MonadIO m
       , MonadError OCDError m
       ) => MonadOCD m where
+
   getSocket :: m Socket
+  default getSocket
+    :: ( MonadTrans t
+       , MonadOCD m'
+       , m ~ t m'
+       )
+    => m Socket
+  getSocket = lift getSocket
 
 instance MonadIO m => MonadOCD (OCDT m) where
   getSocket = ask
+
+instance MonadOCD m => MonadOCD (StateT s m)
+instance MonadOCD m => MonadOCD (ReaderT r m)
+instance MonadOCD m => MonadOCD (ExceptT OCDError m)
 
 -- | Perform RPC call
 rpc
