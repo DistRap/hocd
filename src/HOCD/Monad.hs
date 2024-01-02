@@ -143,7 +143,7 @@ halt' = halt >> pure ()
 
 -- | Read multiple memory segments from @MemAddress@
 -- according to count argument. Segment size depends
--- on passed in Word type.
+-- on Word type.
 readMemCount
   :: forall a m
    . ( MonadOCD m
@@ -161,7 +161,7 @@ readMemCount ma c =
       }
 
 -- | Read single memory segment from @MemAddress@
--- Segment size depends on passed in Word type.
+-- Segment size depends on Word type.
 readMem
   :: forall a m
    . ( MonadOCD m
