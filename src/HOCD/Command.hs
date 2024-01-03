@@ -60,8 +60,8 @@ instance Show Halt where
   show = pure "halt"
 
 instance Command Halt where
-  type Reply Halt = ByteString
-  reply _ = ocdReply
+  type Reply Halt = ()
+  reply _ = voidOcdReply
 
 data ResetMode
   = ResetMode_Run -- ^ Let the target run after reset
