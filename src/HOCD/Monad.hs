@@ -13,6 +13,9 @@ module HOCD.Monad
   , MonadOCD(..)
   , halt
   , halt'
+  , reset
+  , resetHalt
+  , resetHaltInit
   , resume
   , resumeAt
   , step
@@ -40,6 +43,8 @@ import HOCD.Command
   , Capture(..)
   , Halt(..)
   , Resume(..)
+  , Reset(..)
+  , ResetMode(..)
   , Step(..)
   , ReadMemory(..)
   , WriteMemory(..)
@@ -146,6 +151,25 @@ halt'
   :: MonadOCD m
   => m ()
 halt' = halt >> pure ()
+
+-- | Reset target (default "reset run")
+reset
+  :: MonadOCD m
+  => m ()
+reset = rpc $ Reset ResetMode_Run
+
+-- | Reset target and halt execution
+resetHalt
+  :: MonadOCD m
+  => m ()
+resetHalt = rpc $ Reset ResetMode_Halt
+
+-- | Reset target, halt execution
+-- and execute reset-init script
+resetHaltInit
+  :: MonadOCD m
+  => m ()
+resetHaltInit = rpc $ Reset ResetMode_Init
 
 -- | Resume execution
 resume

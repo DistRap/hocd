@@ -8,6 +8,8 @@
 module HOCD.Command
   ( Command(..)
   , Halt(..)
+  , Reset(..)
+  , ResetMode(..)
   , Resume(..)
   , Step(..)
   , Capture(..)
@@ -60,6 +62,30 @@ instance Show Halt where
 instance Command Halt where
   type Reply Halt = ByteString
   reply _ = ocdReply
+
+data ResetMode
+  = ResetMode_Run -- ^ Let the target run after reset
+  | ResetMode_Halt -- ^ Halt target after reset
+  | ResetMode_Init -- ^ Halt target after reset and execute reset-init script
+  deriving (Eq, Ord)
+
+instance Show ResetMode where
+  show ResetMode_Run = "run"
+  show ResetMode_Halt = "halt"
+  show ResetMode_Init = "init"
+
+data Reset = Reset ResetMode
+
+instance Show Reset where
+  show (Reset mode) =
+    unwords
+      [ "reset"
+      , show mode
+      ]
+
+instance Command Reset where
+  type Reply Reset = ()
+  reply _ = voidOcdReply
 
 data Resume = Resume (Maybe MemAddress)
 
