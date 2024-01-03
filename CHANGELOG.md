@@ -9,6 +9,8 @@
   * `step`
   * `stepTo`
 
+* Add `version` query
+
 # Version [0.1.1.1](https://github.com/DistRap/hocd/compare/0.1.1.0...0.1.1.1) (2023-12-27)
 
 * Export `runOCDConfig`

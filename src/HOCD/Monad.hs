@@ -25,6 +25,7 @@ module HOCD.Monad
   , readMemCount
   , writeMem
   , writeMem32
+  , version
   ) where
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
@@ -48,6 +49,7 @@ import HOCD.Command
   , Step(..)
   , ReadMemory(..)
   , WriteMemory(..)
+  , Version(..)
   , subChar
   )
 import HOCD.Error (OCDError(..))
@@ -265,3 +267,9 @@ writeMem32
   -> [Word32] -- ^ Data to write
   -> m ()
 writeMem32 = writeMem @Word32
+
+-- | Query OpenOCD version
+version
+  :: MonadOCD m
+  => m ByteString
+version = rpc Version

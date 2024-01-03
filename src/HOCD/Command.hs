@@ -15,6 +15,7 @@ module HOCD.Command
   , Capture(..)
   , ReadMemory(..)
   , WriteMemory(..)
+  , Version(..)
   , subChar
   , parseMem
   ) where
@@ -205,6 +206,15 @@ instance ( FiniteBits a
          ) => Command (WriteMemory a) where
   type Reply (WriteMemory a) = ()
   reply _ = ocdReply >>= pure . Control.Monad.void
+
+data Version = Version
+
+instance Show Version where
+  show = pure "version"
+
+instance Command Version where
+  type Reply Version = ByteString
+  reply _ = ocdReply
 
 ocdReply :: ByteString -> Either OCDError ByteString
 ocdReply r | Data.ByteString.Char8.last r /= subChar =
