@@ -41,6 +41,8 @@ example = do
   writeMem gpioaOdr [odr+1]
   r <- readMem32 gpioaOdr
 
+  resume
+
   pure (rccCr, r)
 ```
 

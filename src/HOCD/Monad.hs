@@ -13,6 +13,10 @@ module HOCD.Monad
   , MonadOCD(..)
   , halt
   , halt'
+  , resume
+  , resumeAt
+  , step
+  , stepTo
   , readMem
   , readMem32
   , readMemCount
@@ -35,6 +39,8 @@ import HOCD.Command
   ( Command(..)
   , Capture(..)
   , Halt(..)
+  , Resume(..)
+  , Step(..)
   , ReadMemory(..)
   , WriteMemory(..)
   , subChar
@@ -140,6 +146,33 @@ halt'
   :: MonadOCD m
   => m ()
 halt' = halt >> pure ()
+
+-- | Resume execution
+resume
+  :: MonadOCD m
+  => m ()
+resume = rpc $ Resume Nothing
+
+-- | Resume execution at @MemAddress@
+resumeAt
+  :: MonadOCD m
+  => MemAddress
+  -> m ()
+resumeAt = rpc . Resume . Just
+
+-- | Single-step target at its current code position
+step
+  :: MonadOCD m
+  => m ()
+step = rpc $ Step Nothing
+
+-- | Single-step target to code position
+-- at @MemAddress@
+stepTo
+  :: MonadOCD m
+  => MemAddress
+  -> m ()
+stepTo = rpc . Step . Just
 
 -- | Read multiple memory segments from @MemAddress@
 -- according to count argument. Segment size depends

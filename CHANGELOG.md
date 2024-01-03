@@ -1,3 +1,11 @@
+# Version [0.1.2.0](https://github.com/DistRap/hocd/compare/0.1.1.1...0.1.2.0) (2024-01-03)
+
+* Add execution control commands
+  * `resume`
+  * `resumeAt`
+  * `step`
+  * `stepTo`
+
 # Version [0.1.1.1](https://github.com/DistRap/hocd/compare/0.1.1.0...0.1.1.1) (2023-12-27)
 
 * Export `runOCDConfig`

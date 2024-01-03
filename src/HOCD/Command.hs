@@ -8,6 +8,8 @@
 module HOCD.Command
   ( Command(..)
   , Halt(..)
+  , Resume(..)
+  , Step(..)
   , Capture(..)
   , ReadMemory(..)
   , WriteMemory(..)
@@ -59,12 +61,40 @@ instance Command Halt where
   type Reply Halt = ByteString
   reply _ = ocdReply
 
+data Resume = Resume (Maybe MemAddress)
+
+instance Show Resume where
+  show (Resume Nothing) = "resume"
+  show (Resume (Just resumeWhere)) =
+    unwords
+      [ "resume"
+      , show $ unMemAddress resumeWhere
+      ]
+
+instance Command Resume where
+  type Reply Resume = ()
+  reply _ = voidOcdReply
+
+data Step = Step (Maybe MemAddress)
+
+instance Show Step where
+  show (Step Nothing) = "step"
+  show (Step (Just stepTo)) =
+    unwords
+      [ "step"
+      , show $ unMemAddress stepTo
+      ]
+
+instance Command Step where
+  type Reply Step = ()
+  reply _ = voidOcdReply
+
 data Capture a = Capture a
 
 instance Show a => Show (Capture a) where
   show (Capture x) =
     unwords
-      ["capture"
+      [ "capture"
       , show $ show x -- escaping
       ]
 
@@ -155,6 +185,11 @@ ocdReply r | Data.ByteString.Char8.last r /= subChar =
   Left $ OCDError_ReplyMissingSubOnEnd r
 ocdReply r | otherwise =
   Right $ Data.ByteString.Char8.init r
+
+voidOcdReply :: ByteString -> Either OCDError ()
+voidOcdReply =
+  ocdReply
+  >>= pure . Control.Monad.void
 
 subChar :: Char
 subChar = '\SUB'
