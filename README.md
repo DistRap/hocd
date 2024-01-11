@@ -30,6 +30,9 @@ example
   :: MonadOCD m
   => m ([Word32], Word32)
 example = do
+  -- Note that halting a target is not required
+  -- for writing or reading memory, only for reading
+  -- CPU registers
   halt'
 
   -- Read RCC.CR register
