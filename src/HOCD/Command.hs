@@ -16,6 +16,7 @@ module HOCD.Command
   , ReadMemory(..)
   , WriteMemory(..)
   , Version(..)
+  , Raw(..)
   , subChar
   , parseMem
   ) where
@@ -214,6 +215,16 @@ instance Show Version where
 
 instance Command Version where
   type Reply Version = ByteString
+  reply _ = ocdReply
+
+data Raw = Raw ByteString
+
+instance Show Raw where
+  show (Raw cmd) =
+    Data.ByteString.Char8.unpack cmd
+
+instance Command Raw where
+  type Reply Raw = ByteString
   reply _ = ocdReply
 
 ocdReply :: ByteString -> Either OCDError ByteString

@@ -26,6 +26,7 @@ module HOCD.Monad
   , writeMem
   , writeMem32
   , version
+  , raw
   ) where
 
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
@@ -50,6 +51,7 @@ import HOCD.Command
   , ReadMemory(..)
   , WriteMemory(..)
   , Version(..)
+  , Raw(..)
   , subChar
   )
 import HOCD.Error (OCDError(..))
@@ -273,3 +275,12 @@ version
   :: MonadOCD m
   => m ByteString
 version = rpc Version
+
+-- | Send raw OpenOCD command
+-- Escape hatch for commands that are not
+-- part defined as part of hocd api
+raw
+  :: MonadOCD m
+  => ByteString
+  -> m ByteString
+raw = rpc . Raw
