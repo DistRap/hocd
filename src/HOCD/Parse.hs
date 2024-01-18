@@ -20,7 +20,7 @@ parseMem
      , Integral a
      )
   => Parser [a]
-parseMem = hexadecimal `sepBy1` space
+parseMem = ("0x" *> hexadecimal) `sepBy1` space
 
 parseRegisters :: Parser (Map RegisterName RegisterInfo)
 parseRegisters =

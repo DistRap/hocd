@@ -22,7 +22,6 @@ module HOCD.Command
   , Version(..)
   , Raw(..)
   , subChar
-  , parseMem
   ) where
 
 import Data.Bits (FiniteBits(..))
@@ -36,10 +35,7 @@ import Text.Printf (PrintfArg)
 import qualified Control.Monad
 import qualified Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8
-import qualified Data.Either
 import qualified Data.List
-import qualified Data.Text
-import qualified Data.Text.Read
 import qualified HOCD.Parse
 import qualified Text.Printf
 
@@ -157,35 +153,14 @@ instance ( FiniteBits a
          , Integral a
          ) => Command (ReadMemory a) where
   type Reply (ReadMemory a) = [a]
-  reply _ r = ocdReply r >>= parseMem
-
-parseMem
-  :: ( FiniteBits a
-     , Integral a
-     )
-  => ByteString
-  -> Either OCDError [a]
-parseMem =
-      (\case
-         xs | any Data.Either.isLeft xs ->
-          Left (OCDError_ParseMemory $ Data.Either.lefts xs)
-         xs | otherwise ->
-          pure (Data.Either.rights xs)
-      )
-    . map parseHexValue
-    . words
-    . Data.ByteString.Char8.unpack
-
-parseHexValue
-  :: Integral a
-  => String -> Either OCDError a
-parseHexValue =
-  ( either
-      (Left . OCDError_CantReadHex)
-      (pure . fst)
-  . Data.Text.Read.hexadecimal
-  . Data.Text.pack
-  )
+  reply _ r =
+    ocdReply r
+    >>=   (\case
+            Left e -> Left $ OCDError_ParseMemory e
+            Right rs -> pure rs
+          )
+        . Data.Attoparsec.ByteString.Char8.parseOnly
+            HOCD.Parse.parseMem
 
 data WriteMemory a = WriteMemory
   { writeMemoryAddr :: MemAddress

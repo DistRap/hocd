@@ -6,8 +6,7 @@ module ParseSpec where
 
 import Data.ByteString (ByteString)
 import Data.Word (Word32)
-import HOCD.Command (parseMem)
-import HOCD.Parse (parseGetReg, parseRegisters)
+import HOCD.Parse (parseGetReg, parseMem, parseRegisters)
 import HOCD.Types (RegisterInfo(..), RegisterName(..))
 import Test.Hspec (Spec, it, shouldBe)
 import Text.RawString.QQ
@@ -18,7 +17,9 @@ import qualified Data.Map.Strict
 spec :: Spec
 spec = do
   it "parses read-memory sample" $ do
-    parseMem "ABCDFF 001122"
+    Data.Attoparsec.ByteString.Char8.parseOnly
+      parseMem
+      "0xABCDFF 0x001122"
     `shouldBe`
     (Right [0xABCDFF, 0x1122 :: Word32])
 

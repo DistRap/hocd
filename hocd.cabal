@@ -43,7 +43,6 @@ library
                      , mtl
                      , network
                      , transformers
-                     , text
   default-language:    Haskell2010
 
 executable hocd-read-mem
