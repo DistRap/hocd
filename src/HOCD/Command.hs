@@ -1,5 +1,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -15,6 +16,9 @@ module HOCD.Command
   , Capture(..)
   , ReadMemory(..)
   , WriteMemory(..)
+  , Registers(..)
+  , ReadRegister(..)
+  , WriteRegister(..)
   , Version(..)
   , Raw(..)
   , subChar
@@ -22,18 +26,21 @@ module HOCD.Command
   ) where
 
 import Data.Bits (FiniteBits(..))
-import Data.Kind (Type)
 import Data.ByteString (ByteString)
+import Data.Kind (Type)
+import Data.Map (Map)
 import HOCD.Error (OCDError(..))
-import HOCD.Types (MemAddress(..))
+import HOCD.Types (MemAddress(..), RegisterInfo, RegisterName(..))
 import Text.Printf (PrintfArg)
 
 import qualified Control.Monad
+import qualified Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString.Char8
 import qualified Data.Either
 import qualified Data.List
 import qualified Data.Text
 import qualified Data.Text.Read
+import qualified HOCD.Parse
 import qualified Text.Printf
 
 class Command req where
@@ -165,15 +172,20 @@ parseMem =
          xs | otherwise ->
           pure (Data.Either.rights xs)
       )
-    . map
-      ( either
-          (Left . OCDError_CantReadHex)
-          (pure . fst)
-      . Data.Text.Read.hexadecimal
-      . Data.Text.pack
-      )
+    . map parseHexValue
     . words
     . Data.ByteString.Char8.unpack
+
+parseHexValue
+  :: Integral a
+  => String -> Either OCDError a
+parseHexValue =
+  ( either
+      (Left . OCDError_CantReadHex)
+      (pure . fst)
+  . Data.Text.Read.hexadecimal
+  . Data.Text.pack
+  )
 
 data WriteMemory a = WriteMemory
   { writeMemoryAddr :: MemAddress
@@ -207,6 +219,78 @@ instance ( FiniteBits a
          ) => Command (WriteMemory a) where
   type Reply (WriteMemory a) = ()
   reply _ = ocdReply >>= pure . Control.Monad.void
+
+data Registers = Registers
+
+instance Show Registers where
+  show = pure "reg"
+
+instance Command Registers where
+  type Reply Registers = Map RegisterName RegisterInfo
+  reply _ r =
+    ocdReply r
+    >>=   (\case
+            Left e -> Left $ OCDError_ParseRegisters e
+            Right rs -> pure rs
+          )
+        . Data.Attoparsec.ByteString.Char8.parseOnly
+            HOCD.Parse.parseRegisters
+
+data ReadRegister a = ReadRegister RegisterName
+
+instance ( FiniteBits a
+         , Num a
+         ) => Show (ReadRegister a) where
+  show (ReadRegister (RegisterName rn)) =
+    unwords
+      [ "get_reg"
+      , Data.ByteString.Char8.unpack rn
+      ]
+
+instance ( FiniteBits a
+         , Integral a
+         ) => Command (ReadRegister a) where
+  type Reply (ReadRegister a) = a
+  reply (ReadRegister rn) r =
+    ocdReply r
+    >>=   (\case
+            Left e -> Left $ OCDError_ParseRegisters e
+            Right rs -> pure rs
+          )
+        . Data.Attoparsec.ByteString.Char8.parseOnly
+            (HOCD.Parse.parseGetReg rn)
+
+data WriteRegister a = WriteRegister
+  { writeRegisterName :: RegisterName
+  , writeRegisterValue :: a
+  }
+
+instance ( FiniteBits a
+         , Num a
+         , PrintfArg a
+         ) => Show (WriteRegister a) where
+  show WriteRegister{..} =
+    unwords
+      [ "set_reg"
+      , "{"
+      <> Data.ByteString.Char8.unpack (unRegisterName writeRegisterName)
+      <> " "
+      <> Text.Printf.printf "0x%x" writeRegisterValue
+      <> "}"
+      ]
+
+instance ( FiniteBits a
+         , Integral a
+         , PrintfArg a
+         ) => Command (WriteRegister a) where
+  type Reply (WriteRegister a) = ()
+  reply WriteRegister{..} r =
+    ocdReply r
+    >>=   (\case
+            msg | "failed to set" `Data.ByteString.Char8.isPrefixOf` msg
+              -> Left $ OCDError_FailedToSetRegister writeRegisterName
+            _ -> pure ()
+          )
 
 data Version = Version
 

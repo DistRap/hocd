@@ -17,6 +17,7 @@ See Haddocks or [HOCD.Monad]
 ## Example
 
 ```haskell
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 import Data.Word (Word32)
@@ -28,12 +29,17 @@ main = runOCD example >>= print
 -- | For STM32G474
 example
   :: MonadOCD m
-  => m ([Word32], Word32)
+  => m ([Word32], Word32, Word32)
 example = do
   -- Note that halting a target is not required
   -- for writing or reading memory, only for reading
   -- CPU registers
   halt'
+
+  -- Read pc CPU register
+  pc <- readReg $ regName "pc"
+  -- Write back same value
+  writeReg @Word32 (regName "pc") pc
 
   -- Read RCC.CR register
   rccCr <- readMemCount @Word32 0x40021000 2
@@ -46,7 +52,7 @@ example = do
 
   resume
 
-  pure (rccCr, r)
+  pure (rccCr, r, pc)
 ```
 
 This example is runnable from git repository using:

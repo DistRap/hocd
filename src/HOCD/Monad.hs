@@ -25,6 +25,9 @@ module HOCD.Monad
   , readMemCount
   , writeMem
   , writeMem32
+  , registers
+  , readReg
+  , writeReg
   , version
   , raw
   ) where
@@ -39,6 +42,7 @@ import Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import Control.Monad.Trans.State (StateT)
 import Data.Bits (FiniteBits(..))
 import Data.ByteString (ByteString)
+import Data.Map (Map)
 import Data.Word (Word32)
 import HOCD.Command
   ( Command(..)
@@ -50,12 +54,15 @@ import HOCD.Command
   , Step(..)
   , ReadMemory(..)
   , WriteMemory(..)
+  , Registers(..)
+  , ReadRegister(..)
+  , WriteRegister(..)
   , Version(..)
   , Raw(..)
   , subChar
   )
 import HOCD.Error (OCDError(..))
-import HOCD.Types (MemAddress)
+import HOCD.Types (MemAddress, RegisterInfo, RegisterName)
 import Network.Socket (Socket)
 import Text.Printf (PrintfArg)
 
@@ -269,6 +276,40 @@ writeMem32
   -> [Word32] -- ^ Data to write
   -> m ()
 writeMem32 = writeMem @Word32
+
+registers
+  :: MonadOCD m
+  => m (Map RegisterName RegisterInfo)
+registers = rpc Registers
+
+-- | Read a CPU register
+readReg
+  :: forall a m
+   . ( MonadOCD m
+     , FiniteBits a
+     , Integral a
+     )
+  => RegisterName -- ^ Name of the register to query
+  -> m a
+readReg = rpc . ReadRegister
+
+-- | Write a CPU register
+writeReg
+  :: forall a m
+   . ( MonadOCD m
+     , FiniteBits a
+     , Integral a
+     , PrintfArg a
+     )
+  => RegisterName -- ^ Name of the register to write to
+  -> a -- ^ Value to write
+  -> m ()
+writeReg rn x =
+  rpc
+  $ WriteRegister
+    { writeRegisterName = rn
+    , writeRegisterValue = x
+    }
 
 -- | Query OpenOCD version
 version

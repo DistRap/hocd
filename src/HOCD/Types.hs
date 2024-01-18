@@ -3,10 +3,14 @@ module HOCD.Types
   ( MemAddress(..)
   , memAddr
   , OCDConfig(..)
+  , RegisterName(..)
+  , regName
+  , RegisterInfo(..)
   ) where
 
+import Data.ByteString (ByteString)
 import Data.Default.Class (Default(def))
-import Data.Word (Word32)
+import Data.Word (Word8, Word32, Word64)
 
 newtype MemAddress = MemAddress
   { unMemAddress :: Word32 }
@@ -28,4 +32,16 @@ instance Default OCDConfig where
       , ocdPort = 6666
       }
 
+newtype RegisterName = RegisterName
+  { unRegisterName :: ByteString }
+  deriving (Eq, Ord, Show)
 
+regName :: ByteString -> RegisterName
+regName = RegisterName
+
+data RegisterInfo = RegisterInfo
+  { registerInfoSize :: Word8
+  , registerInfoValue :: Maybe Word64
+  , registerInfoDirty :: Bool
+  , registerInfoGroup :: ByteString
+  } deriving (Eq, Ord, Show)
